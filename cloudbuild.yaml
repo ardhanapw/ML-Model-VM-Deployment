@@ -1,0 +1,35 @@
+#Cloud Build Options
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  #Build Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/my-app:v1', '.']
+
+  #Create Compute Engine VM if the VM doesn't exist
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if ! gcloud compute instances describe my-instance --zone=us-central1-a > /dev/null 2>&1; then
+          gcloud compute instances create-with-container my-instance \
+            --zone=us-central1-a \
+            --container-image=gcr.io/$PROJECT_ID/my-app:v1 \
+            --boot-disk-size=20GB \
+            --machine-type=e2-medium
+        fi
+
+  #Deploy Docker image to Compute Engine VM
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'compute'
+      - 'instances'
+      - 'update-container'
+      - 'my-instance'
+      - '--zone=us-central1-a'
+      - '--container-image=gcr.io/$PROJECT_ID/my-app:v1'
+
+images:
+  - 'gcr.io/$PROJECT_ID/my-app:v1'
